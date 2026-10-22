@@ -407,6 +407,38 @@ input[aria-invalid="true"] {
   font-size: 14px;
   margin: 8px 0;
 }
+.formula-equation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 18px 12px;
+  margin: 8px 0 12px;
+  border: 1px solid #d9dfcf;
+  background: #eef1e8;
+  color: #292e29;
+  font-size: 17px;
+  font-weight: 600;
+}
+.formula-equation > strong {
+  font-size: 22px;
+}
+.formula-equation > span:last-child {
+  white-space: nowrap;
+}
+.formula-fraction {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  font-size: 15px;
+}
+.formula-fraction > span:first-child {
+  border-bottom: 1.5px solid #626b5b;
+  padding: 0 3px 7px;
+}
+.formula-fraction > span:last-child {
+  padding: 7px 3px 0;
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -419,6 +451,14 @@ input[aria-invalid="true"] {
   border: 0;
 }
 @media (max-width: 380px) {
+  .formula-equation {
+    gap: 6px;
+    padding-inline: 8px;
+    font-size: 15px;
+  }
+  .formula-fraction {
+    font-size: 13px;
+  }
   main {
     padding-inline: 14px;
   }

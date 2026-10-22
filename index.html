@@ -17,7 +17,7 @@
       <div class="goal-strip">
         <div class="goal-current">
           <span>현재 PI</span
-          ><output id="pi-result" aria-label="현재 PI">381.3</output>
+          ><output id="pi-result" aria-label="현재 PI">—</output>
         </div>
         <label class="goal-target" for="target"
           >목표 PI<input
@@ -26,7 +26,6 @@
             inputmode="decimal"
             min="0"
             step="any"
-            value="400"
             required
             aria-describedby="error-target"
         /></label>
@@ -42,9 +41,7 @@
               type="number"
               inputmode="decimal"
               min="0"
-              max="100"
               step="any"
-              value="98.9"
               required
               aria-describedby="error-livability"
             /><span class="input-unit" aria-hidden="true">%</span></span
@@ -58,7 +55,6 @@
               inputmode="decimal"
               min="0"
               step="any"
-              value="1.75"
               required
               aria-describedby="error-weight"
             /><span class="input-unit" aria-hidden="true">kg</span></span
@@ -72,7 +68,6 @@
               inputmode="decimal"
               min="0"
               step="any"
-              value="31.3"
               required
               aria-describedby="error-age"
             /><span class="input-unit" aria-hidden="true">일</span></span
@@ -86,7 +81,6 @@
               inputmode="decimal"
               min="0"
               step="any"
-              value="1.45"
               required
               aria-describedby="error-fcr" /></span
           ><small id="error-fcr" class="field-error"></small
@@ -95,8 +89,7 @@
 
       <section aria-labelledby="targets-title">
         <div class="section-line target-heading">
-          <h2 id="targets-title">한 항목만 바꾸면</h2>
-          <span class="fine">나머지 고정</span>
+          <h2 id="targets-title">목표 PI를 달성하기 위해선</h2>
         </div>
         <table class="target-table">
           <thead>
@@ -114,10 +107,10 @@
       <div class="scenario-summary">
         <div>
           <span id="scenario-label" class="fine">현재 조건</span
-          ><strong id="scenario-pi">PI 381.3</strong
-          ><span id="scenario-status" class="fine">목표까지 18.7</span>
+          ><strong id="scenario-pi">PI —</strong
+          ><span id="scenario-status" class="fine"></span>
         </div>
-        <button type="button" id="save-record" class="primary">
+        <button type="button" id="save-record" class="primary" disabled>
           기록 저장
         </button>
       </div>
@@ -139,23 +132,23 @@
           </button>
         </div>
         <div id="records"></div>
-        <p class="storage-note">
-          최근 50개를 이 브라우저에 저장합니다.<br />브라우저 데이터를 삭제하면
-          기록도 삭제됩니다.
-        </p>
+        <p class="storage-note">최대 50개 저장</p>
       </section>
 
       <details class="formula">
         <summary>계산 기준</summary>
-        <p>PI = (육성률 × 평체) ÷ (사육일령 × FCR) × 100</p>
-        <p>
-          육성률은 98.9%라면 98.9를 입력합니다. 다른 항목을 고정한 산식
-          역산이며, 실제 사육 성적을 예측하지 않습니다.
-        </p>
-        <p>
-          목표를 충족하도록 평체·육성률은 올림, 사료요구율·사육일령은
-          내림합니다. 육성률 100% 초과 등 불가능한 조건은 선택할 수 없습니다.
-        </p>
+        <div
+          class="formula-equation"
+          role="math"
+          aria-label="PI는 육성률 곱하기 평체를 사육일령 곱하기 사료요구율로 나눈 값에 100을 곱합니다."
+        >
+          <strong>PI</strong><span>=</span>
+          <span class="formula-fraction"
+            ><span>육성률 × 평체</span><span>사육일령 × 사료요구율</span></span
+          >
+          <span>× 100</span>
+        </div>
+        <p>각 필요값은 다른 세 조건을 그대로 두고 계산합니다.</p>
       </details>
       <div
         id="calculation-status"

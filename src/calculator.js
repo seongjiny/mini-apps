@@ -5,6 +5,7 @@ export const DEFAULT_INPUT = Object.freeze({
   fcr: 1.45,
 });
 export const FIELDS = Object.freeze(Object.keys(DEFAULT_INPUT));
+export const MAX_TARGET_LIVABILITY = 103;
 export const LABELS = Object.freeze({
   livability: "육성률",
   weight: "평체",
@@ -35,8 +36,8 @@ export function evaluate(input) {
     }
     const value = Number(raw);
     if (!Number.isFinite(value)) errors[key] = "숫자로 입력해 주세요.";
-    else if (key === "livability" && (value < 0 || value > 100))
-      errors[key] = "0~100%로 입력해 주세요.";
+    else if (key === "livability" && value < 0)
+      errors[key] = "0% 이상으로 입력해 주세요.";
     else if (key !== "livability" && value <= 0)
       errors[key] = "0보다 큰 값을 입력해 주세요.";
     else values[key] = value;
@@ -73,14 +74,16 @@ export function solveTargets(input, target) {
       let value =
         (up ? Math.ceil(exact[key] * scale) : Math.floor(exact[key] * scale)) /
         scale;
-      let possible =
-        Number.isFinite(value) &&
-        value > 0 &&
-        (key !== "livability" || exact[key] <= 100);
+      if (key === "livability") value = Math.min(value, MAX_TARGET_LIVABILITY);
+      let possible = Number.isFinite(value) && value > 0;
       // Verify the rounded condition meets the goal, including floating-point edges.
       if (possible) {
         let score = evaluate({ ...v, [key]: value }).score;
-        if (score !== null && score < t) {
+        if (
+          score !== null &&
+          score < t &&
+          (key !== "livability" || value < MAX_TARGET_LIVABILITY)
+        ) {
           value = Number((value + (up ? 1 : -1) / scale).toFixed(digits));
           score = evaluate({ ...v, [key]: value }).score;
         }
@@ -88,7 +91,7 @@ export function solveTargets(input, target) {
           score !== null &&
           score >= t &&
           value > 0 &&
-          (key !== "livability" || value <= 100);
+          (key !== "livability" || value <= MAX_TARGET_LIVABILITY);
       }
       return [
         key,
@@ -99,10 +102,7 @@ export function solveTargets(input, target) {
           digits,
           up,
           delta: value - v[key],
-          reason:
-            key === "livability" && exact[key] > 100
-              ? "100% 초과"
-              : "단독 조정 불가",
+          reason: key === "livability" ? "103%로 달성 불가" : "단독 조정 불가",
         },
       ];
     }),

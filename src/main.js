@@ -7,7 +7,13 @@ import {
   validTarget,
   solveTargets,
 } from "./calculator.js";
-import { readRecords, writeRecords, HISTORY_LIMIT } from "./storage.js";
+import {
+  readRecords,
+  writeRecords,
+  readDraft,
+  writeDraft,
+  HISTORY_LIMIT,
+} from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
 const number = (value, digits = 3) =>
@@ -25,6 +31,7 @@ const fullDateFormat = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
   timeStyle: "medium",
 });
+const touched = new Set();
 let records = [],
   selectedKey = null,
   selectedValues = null,
@@ -37,30 +44,64 @@ function status(message, error = false) {
 function readInputs() {
   return evaluate(Object.fromEntries(FIELDS.map((key) => [key, $(key).value])));
 }
+function persistDraft() {
+  try {
+    writeDraft(
+      localStorage,
+      Object.fromEntries(
+        [...FIELDS, "target"].map((key) => [key, $(key).value]),
+      ),
+    );
+  } catch {
+    status(
+      "입력값을 자동 저장하지 못했습니다. 브라우저 저장 설정을 확인해 주세요.",
+      true,
+    );
+  }
+}
 function render() {
   const current = readInputs(),
     target = Number($("target").value);
   const targetValid = validTarget($("target").value);
+  $("targets-title").textContent = targetValid
+    ? `PI ${number(target)}${/[136780]$/.test(String(target)) ? "을" : "를"} 달성하기 위해선`
+    : "목표 PI를 달성하기 위해선";
   $("pi-result").textContent =
     current.score === null ? "—" : number(current.score, 1);
   for (const key of FIELDS) {
-    $("error-" + key).textContent = current.errors[key] || "";
-    $(key).setAttribute("aria-invalid", String(Boolean(current.errors[key])));
+    const error = touched.has(key) ? current.errors[key] || "" : "";
+    $("error-" + key).textContent = error;
+    $(key).setAttribute("aria-invalid", String(Boolean(error)));
   }
-  $("error-target").textContent = targetValid
-    ? ""
-    : "목표 PI는 0보다 큰 값으로 입력하세요.";
-  $("target").setAttribute("aria-invalid", String(!targetValid));
+  const targetError = touched.has("target") && !targetValid;
+  $("error-target").textContent = targetError
+    ? "목표 PI는 0보다 큰 값으로 입력하세요."
+    : "";
+  $("target").setAttribute("aria-invalid", String(targetError));
   const solutions = targetValid ? solveTargets(current.values, target) : null;
   selectedValues = null;
   $("save-record").disabled = !solutions;
   if (!solutions) {
+    selectedKey = null;
+    const hasInvalidValue = [...FIELDS, "target"].some(
+      (key) =>
+        $(key).value.trim() !== "" &&
+        (key === "target" ? !targetValid : Boolean(current.errors[key])),
+    );
+    const message = hasInvalidValue
+      ? "입력값을 확인해 주세요."
+      : current.score !== null
+        ? "목표 PI를 입력해 주세요."
+        : targetValid
+          ? "현재 조건을 모두 입력해 주세요."
+          : "현재 조건과 목표 PI를 입력해 주세요.";
     $("target-rows").innerHTML =
-      '<tr><td colspan="3" class="table-empty">입력값을 확인해 주세요.</td></tr>';
+      `<tr><td colspan="3" class="table-empty">${message}</td></tr>`;
     $("scenario-label").textContent = "현재 조건";
-    $("scenario-pi").textContent = "PI —";
+    $("scenario-pi").textContent =
+      current.score === null ? "PI —" : "PI " + number(current.score, 1);
     $("scenario-status").textContent = "";
-    announce("입력값을 확인해 주세요.");
+    announce(message);
     return;
   }
   if (selectedKey && !solutions[selectedKey].possible) selectedKey = null;
@@ -145,14 +186,31 @@ function renderRecords() {
 
 FIELDS.forEach((key) =>
   $(key).addEventListener("input", () => {
+    touched.add(key);
     selectedKey = null;
     status("");
     render();
+    persistDraft();
   }),
 );
 $("target").addEventListener("input", () => {
+  touched.add("target");
   status("");
   render();
+  persistDraft();
+});
+[...FIELDS, "target"].forEach((key) => {
+  $(key).addEventListener("blur", () => {
+    touched.add(key);
+    const error =
+      key === "target"
+        ? validTarget($(key).value)
+          ? ""
+          : "목표 PI는 0보다 큰 값으로 입력하세요."
+        : readInputs().errors[key] || "";
+    $("error-" + key).textContent = error;
+    $(key).setAttribute("aria-invalid", String(Boolean(error)));
+  });
 });
 $("pi-form").addEventListener("submit", (event) => event.preventDefault());
 $("target-rows").addEventListener("click", (event) => {
@@ -203,6 +261,7 @@ $("records").addEventListener("click", (event) => {
     selectedKey = null;
     render();
     status("저장한 조건을 불러왔습니다.");
+    persistDraft();
     $("target").focus({ preventScroll: true });
     window.scrollTo({
       top: 0,
@@ -242,4 +301,14 @@ try {
   status("이전 기록을 읽을 수 없습니다. 계산은 계속 사용할 수 있습니다.", true);
 }
 renderRecords();
+try {
+  const draft = readDraft(localStorage);
+  if (draft)
+    [...FIELDS, "target"].forEach((key) => {
+      $(key).value = draft[key];
+      if (draft[key] !== "") touched.add(key);
+    });
+} catch {
+  status("마지막 입력값을 불러오지 못했습니다. 새로 입력해 주세요.", true);
+}
 render();
