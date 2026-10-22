@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafbf8" />
+    <meta
+      name="description"
+      content="육계 생산지수를 계산하고 목표 PI에 필요한 평체, 사료요구율, 사육일령, 육성률을 비교합니다."
+    />
+    <link rel="icon" href="data:," />
+    <title>생산 지수 시뮬레이터</title>
+  </head>
+  <body>
+    <main>
+      <h1>생산 지수 시뮬레이터</h1>
+      <div class="goal-strip">
+        <div class="goal-current">
+          <span>현재 PI</span
+          ><output id="pi-result" aria-label="현재 PI">381.3</output>
+        </div>
+        <label class="goal-target" for="target"
+          >목표 PI<input
+            id="target"
+            type="number"
+            inputmode="decimal"
+            min="0"
+            step="any"
+            value="400"
+            required
+            aria-describedby="error-target"
+        /></label>
+      </div>
+      <p id="error-target" class="field-error"></p>
+
+      <h2 class="input-heading">현재 조건</h2>
+      <form id="pi-form" class="input-grid" novalidate>
+        <label class="number-field" for="livability"
+          >육성률<span class="input-with-unit"
+            ><input
+              id="livability"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              max="100"
+              step="any"
+              value="98.9"
+              required
+              aria-describedby="error-livability"
+            /><span class="input-unit" aria-hidden="true">%</span></span
+          ><small id="error-livability" class="field-error"></small
+        ></label>
+        <label class="number-field" for="weight"
+          >평체<span class="input-with-unit"
+            ><input
+              id="weight"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="any"
+              value="1.75"
+              required
+              aria-describedby="error-weight"
+            /><span class="input-unit" aria-hidden="true">kg</span></span
+          ><small id="error-weight" class="field-error"></small
+        ></label>
+        <label class="number-field" for="age"
+          >사육일령<span class="input-with-unit"
+            ><input
+              id="age"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="any"
+              value="31.3"
+              required
+              aria-describedby="error-age"
+            /><span class="input-unit" aria-hidden="true">일</span></span
+          ><small id="error-age" class="field-error"></small
+        ></label>
+        <label class="number-field" for="fcr"
+          >사료요구율<span class="input-with-unit"
+            ><input
+              id="fcr"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="any"
+              value="1.45"
+              required
+              aria-describedby="error-fcr" /></span
+          ><small id="error-fcr" class="field-error"></small
+        ></label>
+      </form>
+
+      <section aria-labelledby="targets-title">
+        <div class="section-line target-heading">
+          <h2 id="targets-title">한 항목만 바꾸면</h2>
+          <span class="fine">나머지 고정</span>
+        </div>
+        <table class="target-table">
+          <thead>
+            <tr>
+              <th scope="col">항목</th>
+              <th scope="col">필요한 값</th>
+              <th scope="col">변화량</th>
+            </tr>
+          </thead>
+          <tbody id="target-rows"></tbody>
+        </table>
+        <p class="tap-hint">필요한 값을 누르면 해당 조건으로 계산합니다.</p>
+      </section>
+
+      <div class="scenario-summary">
+        <div>
+          <span id="scenario-label" class="fine">현재 조건</span
+          ><strong id="scenario-pi">PI 381.3</strong
+          ><span id="scenario-status" class="fine">목표까지 18.7</span>
+        </div>
+        <button type="button" id="save-record" class="primary">
+          기록 저장
+        </button>
+      </div>
+      <p id="save-status" class="save-status" role="status"></p>
+
+      <section class="records-section" aria-labelledby="records-title">
+        <div class="section-line records-heading">
+          <h2 id="records-title">
+            저장한 기록 <span id="record-count"></span>
+          </h2>
+          <button
+            type="button"
+            id="records-toggle"
+            class="secondary"
+            aria-expanded="true"
+            aria-controls="records"
+          >
+            가리기
+          </button>
+        </div>
+        <div id="records"></div>
+        <p class="storage-note">
+          최근 50개를 이 브라우저에 저장합니다.<br />브라우저 데이터를 삭제하면
+          기록도 삭제됩니다.
+        </p>
+      </section>
+
+      <details class="formula">
+        <summary>계산 기준</summary>
+        <p>PI = (육성률 × 평체) ÷ (사육일령 × FCR) × 100</p>
+        <p>
+          육성률은 98.9%라면 98.9를 입력합니다. 다른 항목을 고정한 산식
+          역산이며, 실제 사육 성적을 예측하지 않습니다.
+        </p>
+        <p>
+          목표를 충족하도록 평체·육성률은 올림, 사료요구율·사육일령은
+          내림합니다. 육성률 100% 초과 등 불가능한 조건은 선택할 수 없습니다.
+        </p>
+      </details>
+      <div
+        id="calculation-status"
+        class="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      ></div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
