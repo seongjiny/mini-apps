@@ -6,6 +6,18 @@ export const DEFAULT_INPUT = Object.freeze({
 });
 export const FIELDS = Object.freeze(Object.keys(DEFAULT_INPUT));
 export const MAX_TARGET_LIVABILITY = 103;
+export const INPUT_RANGES = Object.freeze({
+  weight: Object.freeze({ min: 1, max: 5 }),
+  age: Object.freeze({ min: 20, max: 50 }),
+});
+
+export function weightInKg(raw, unit = "kg") {
+  return raw === "" ? "" : Number(raw) / (unit === "g" ? 1000 : 1);
+}
+
+export function displayWeight(kg, unit = "kg") {
+  return Number((kg * (unit === "g" ? 1000 : 1)).toPrecision(15));
+}
 export const LABELS = Object.freeze({
   livability: "육성률",
   weight: "평체",
@@ -25,7 +37,7 @@ export function validTarget(raw) {
   return Number.isFinite(Number(raw)) && Number(raw) > 0;
 }
 
-export function evaluate(input) {
+export function evaluate(input, { enforceRanges = true } = {}) {
   const values = {},
     errors = {};
   for (const key of FIELDS) {
@@ -40,6 +52,15 @@ export function evaluate(input) {
       errors[key] = "0% 이상으로 입력해 주세요.";
     else if (key !== "livability" && value <= 0)
       errors[key] = "0보다 큰 값을 입력해 주세요.";
+    else if (
+      enforceRanges &&
+      INPUT_RANGES[key] &&
+      (value < INPUT_RANGES[key].min || value > INPUT_RANGES[key].max)
+    )
+      errors[key] =
+        key === "weight"
+          ? "1~5kg으로 입력해 주세요."
+          : "20~50일로 입력해 주세요.";
     else values[key] = value;
   }
   let score = Object.keys(errors).length
@@ -74,7 +95,11 @@ export function solveTargets(input, target) {
       let value =
         (up ? Math.ceil(exact[key] * scale) : Math.floor(exact[key] * scale)) /
         scale;
-      if (key === "livability") value = Math.min(value, MAX_TARGET_LIVABILITY);
+      const limits =
+        key === "livability"
+          ? { min: 0, max: MAX_TARGET_LIVABILITY }
+          : INPUT_RANGES[key];
+      if (limits) value = Math.max(limits.min, Math.min(value, limits.max));
       let possible = Number.isFinite(value) && value > 0;
       // Verify the rounded condition meets the goal, including floating-point edges.
       if (possible) {
@@ -82,7 +107,7 @@ export function solveTargets(input, target) {
         if (
           score !== null &&
           score < t &&
-          (key !== "livability" || value < MAX_TARGET_LIVABILITY)
+          (!limits || (up ? value < limits.max : value > limits.min))
         ) {
           value = Number((value + (up ? 1 : -1) / scale).toFixed(digits));
           score = evaluate({ ...v, [key]: value }).score;
@@ -91,7 +116,7 @@ export function solveTargets(input, target) {
           score !== null &&
           score >= t &&
           value > 0 &&
-          (key !== "livability" || value <= MAX_TARGET_LIVABILITY);
+          (!limits || (value >= limits.min && value <= limits.max));
       }
       return [
         key,
@@ -102,7 +127,14 @@ export function solveTargets(input, target) {
           digits,
           up,
           delta: value - v[key],
-          reason: key === "livability" ? "103%로 달성 불가" : "단독 조정 불가",
+          reason:
+            key === "livability"
+              ? "103%로 달성 불가"
+              : key === "weight"
+                ? "5kg로 달성 불가"
+                : key === "age"
+                  ? "20일로 달성 불가"
+                  : "단독 조정 불가",
         },
       ];
     }),

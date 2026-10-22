@@ -1,4 +1,4 @@
-import { evaluate, validTarget, FIELDS } from "./calculator.js";
+import { evaluate, FIELDS } from "./calculator.js";
 
 export const HISTORY_KEY = "poultry-pi.records.v1";
 export const HISTORY_LIMIT = 50;
@@ -9,7 +9,7 @@ function normalizeDraft(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new Error("Invalid draft");
   }
-  return Object.fromEntries(
+  const values = Object.fromEntries(
     DRAFT_FIELDS.map((key) => {
       const value = data[key];
       if (
@@ -22,6 +22,9 @@ function normalizeDraft(data) {
       return [key, value];
     }),
   );
+  if (data.weightUnit !== undefined && !["kg", "g"].includes(data.weightUnit))
+    throw new Error("Invalid weight unit");
+  return { ...values, weightUnit: data.weightUnit ?? "kg" };
 }
 
 export function readDraft(storage) {
@@ -46,17 +49,14 @@ export function normalizeRecords(data) {
         Number.isFinite(Date.parse(record.createdAt)) &&
         record.input &&
         FIELDS.every((key) => typeof record.input[key] === "number") &&
-        evaluate(record.input).score !== null &&
-        typeof record.target === "number" &&
-        validTarget(record.target),
+        evaluate(record.input, { enforceRanges: false }).score !== null,
     )
     .slice(0, HISTORY_LIMIT)
     .map((record) => ({
       id: record.id,
       createdAt: record.createdAt,
-      input: { ...evaluate(record.input).values },
-      target: record.target,
-      pi: evaluate(record.input).score,
+      input: { ...evaluate(record.input, { enforceRanges: false }).values },
+      pi: evaluate(record.input, { enforceRanges: false }).score,
     }));
 }
 

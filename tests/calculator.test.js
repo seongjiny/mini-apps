@@ -7,6 +7,9 @@ import {
   validTarget,
   solveTargets,
   MAX_TARGET_LIVABILITY,
+  INPUT_RANGES,
+  weightInKg,
+  displayWeight,
 } from "../src/calculator.js";
 import {
   HISTORY_KEY,
@@ -49,10 +52,18 @@ test("every selectable single-variable adjustment meets its target", () => {
           evaluate(adjusted).score >= target,
           `${key} must reach ${target}`,
         );
-        assert.ok(
-          Math.abs(solution.value - solution.exact) <=
-            1 / 10 ** solution.digits + 1e-10,
-        );
+        const range = INPUT_RANGES[key];
+        if (range)
+          assert.ok(solution.value >= range.min && solution.value <= range.max);
+        if (
+          !range ||
+          (solution.exact >= range.min && solution.exact <= range.max)
+        ) {
+          assert.ok(
+            Math.abs(solution.value - solution.exact) <=
+              1 / 10 ** solution.digits + 1e-10,
+          );
+        }
         FIELDS.filter((field) => field !== key).forEach((field) =>
           assert.equal(adjusted[field], input[field]),
         );
@@ -129,7 +140,7 @@ const record = {
   target: 400,
 };
 
-test("records retain inputs, target, timestamp and independently recalculated PI", () => {
+test("records retain current inputs, timestamp and recalculated PI without a target", () => {
   const data = new Map();
   const storage = {
     getItem: (key) => data.get(key) ?? null,
@@ -141,11 +152,11 @@ test("records retain inputs, target, timestamp and independently recalculated PI
   const saved = JSON.parse(data.get(HISTORY_KEY))[0];
   assert.deepEqual(saved.input, DEFAULT_INPUT);
   assert.equal(saved.createdAt, record.createdAt);
-  assert.equal(saved.target, 400);
+  assert.equal("target" in saved, false);
   assert.equal(saved.pi, evaluate(DEFAULT_INPUT).score);
 });
 
-test("selected scenario values are saved as the actual recorded condition", () => {
+test("records can retain conditions after a scenario has been applied", () => {
   const input = {
     ...DEFAULT_INPUT,
     weight: solveTargets(DEFAULT_INPUT, 400).weight.value,
@@ -159,7 +170,7 @@ test("malformed history is filtered and stored result cannot override calculatio
   const result = normalizeRecords([
     null,
     {},
-    { ...record, target: 0 },
+    { ...record, input: { ...DEFAULT_INPUT, livability: -1 } },
     { ...record, createdAt: "invalid" },
     { ...record, input: { ...DEFAULT_INPUT, fcr: 0 } },
     { ...record, pi: 999 },
@@ -211,7 +222,7 @@ test("last input restores partial and cleared fields without changing saved reco
     target: "400",
   };
   writeDraft(storage, values);
-  assert.deepEqual(readDraft(storage), values);
+  assert.deepEqual(readDraft(storage), { ...values, weightUnit: "kg" });
   writeDraft(storage, { ...values, weight: "" });
   assert.equal(readDraft(storage).weight, "");
   assert.equal(data.get(HISTORY_KEY), history);
@@ -245,4 +256,68 @@ test("malformed last input and unavailable storage fail without returning unsafe
       ),
     /Quota exceeded/,
   );
+});
+
+test("weight units preserve PI and weight/age boundaries are inclusive", () => {
+  assert.equal(weightInKg("1750", "g"), 1.75);
+  assert.equal(weightInKg("", "g"), "");
+  assert.equal(displayWeight(1.001, "g"), 1001);
+  assert.equal(
+    evaluate({ ...DEFAULT_INPUT, weight: weightInKg("1750", "g") }).score,
+    evaluate(DEFAULT_INPUT).score,
+  );
+  for (const weight of [1, 5])
+    assert.notEqual(evaluate({ ...DEFAULT_INPUT, weight }).score, null);
+  for (const weight of [0.999, 5.001])
+    assert.equal(evaluate({ ...DEFAULT_INPUT, weight }).score, null);
+  for (const age of [20, 50])
+    assert.notEqual(evaluate({ ...DEFAULT_INPUT, age }).score, null);
+  for (const age of [19.99, 50.01])
+    assert.equal(evaluate({ ...DEFAULT_INPUT, age }).score, null);
+  assert.equal(solveTargets(DEFAULT_INPUT, 1500).weight.possible, false);
+  assert.equal(solveTargets(DEFAULT_INPUT, 1500).age.possible, false);
+});
+
+test("new current-value records need no target and old out-of-range records are preserved", () => {
+  const { target, ...currentOnly } = record;
+  const saved = normalizeRecords([
+    currentOnly,
+    {
+      ...record,
+      id: "legacy",
+      input: { ...DEFAULT_INPUT, age: 60, weight: 0.8 },
+    },
+  ]);
+  assert.equal(saved.length, 2);
+  assert.equal("target" in saved[0], false);
+  assert.equal("target" in saved[1], false);
+  assert.equal(saved[1].input.age, 60);
+  assert.equal(saved[1].input.weight, 0.8);
+  assert.ok(saved[1].pi > 0);
+});
+
+test("gram draft stores its unit and legacy drafts remain kilograms", () => {
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => data.set(key, value),
+  };
+  const values = {
+    livability: "98.9",
+    weight: "1750",
+    age: "31.3",
+    fcr: "1.45",
+    target: "400",
+    weightUnit: "g",
+  };
+  writeDraft(storage, values);
+  assert.deepEqual(readDraft(storage), values);
+  data.set(
+    DRAFT_KEY,
+    JSON.stringify({ ...values, weight: "1.75", weightUnit: undefined }),
+  );
+  assert.equal(readDraft(storage).weightUnit, "kg");
+  assert.equal(readDraft(storage).weight, "1.75");
+  data.set(DRAFT_KEY, JSON.stringify({ ...values, weightUnit: "lb" }));
+  assert.throws(() => readDraft(storage));
 });

@@ -68,6 +68,7 @@ main {
   gap: 8px;
 }
 .goal-strip {
+  margin-top: 18px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   background: #eef1e8;
@@ -122,6 +123,39 @@ main {
   font-size: 18px;
   font-weight: 700;
   min-width: 0;
+}
+.field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-height: 27px;
+}
+.unit-switch {
+  display: flex;
+  align-self: stretch;
+  border: 1px solid #bdc7b3;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.unit-switch button {
+  border: 0;
+  background: transparent;
+  padding: 3px 9px;
+  font-size: 13px;
+  min-width: 32px;
+  font-weight: 600;
+}
+.unit-switch button[aria-pressed="true"] {
+  color: white;
+  background: #46563a;
+}
+.range-hint {
+  display: block;
+  font-size: 13px;
+  color: var(--sub);
+  font-weight: 400;
+  margin-top: 4px;
 }
 .input-with-unit {
   display: block;
@@ -264,6 +298,26 @@ input[aria-invalid="true"] {
   border-block: 1px solid var(--line);
   margin-top: 16px;
   padding: 12px 0;
+}
+.scenario-actions {
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px solid #cbd5c0;
+  background: #eef1e8;
+}
+.scenario-actions p {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.scenario-action-buttons {
+  display: flex;
+  gap: 9px;
+}
+.scenario-action-buttons button {
+  flex: 1;
+  min-height: 48px;
 }
 .scenario-summary > div {
   display: flex;

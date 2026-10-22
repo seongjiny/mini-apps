@@ -6,6 +6,8 @@ import {
   evaluate,
   validTarget,
   solveTargets,
+  weightInKg,
+  displayWeight,
 } from "./calculator.js";
 import {
   readRecords,
@@ -32,6 +34,7 @@ const fullDateFormat = new Intl.DateTimeFormat("ko-KR", {
   timeStyle: "medium",
 });
 const touched = new Set();
+let weightUnit = "kg";
 let records = [],
   selectedKey = null,
   selectedValues = null,
@@ -42,16 +45,49 @@ function status(message, error = false) {
   $("save-status").classList.toggle("error", error);
 }
 function readInputs() {
-  return evaluate(Object.fromEntries(FIELDS.map((key) => [key, $(key).value])));
+  const values = Object.fromEntries(FIELDS.map((key) => [key, $(key).value]));
+  values.weight = weightInKg(values.weight, weightUnit);
+  const result = evaluate(values);
+  if (
+    weightUnit === "g" &&
+    result.errors.weight &&
+    values.weight !== "" &&
+    Number.isFinite(values.weight) &&
+    (values.weight < 1 || values.weight > 5)
+  ) {
+    result.errors.weight = "1,000~5,000g으로 입력해 주세요.";
+  }
+  return result;
+}
+function fieldNumber(key, value, digits = 3) {
+  return number(
+    key === "weight" ? displayWeight(value, weightUnit) : value,
+    digits,
+  );
+}
+function fieldUnit(key) {
+  return key === "weight" ? weightUnit : UNITS[key];
+}
+function syncWeightUnit() {
+  $("weight").min = weightUnit === "g" ? "1000" : "1";
+  $("weight").max = weightUnit === "g" ? "5000" : "5";
+  $("weight-unit-label").textContent = weightUnit;
+  $("weight-range").textContent = weightUnit === "g" ? "1,000~5,000g" : "1~5kg";
+  document.querySelectorAll("[data-weight-unit]").forEach((button) => {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.weightUnit === weightUnit),
+    );
+  });
 }
 function persistDraft() {
   try {
-    writeDraft(
-      localStorage,
-      Object.fromEntries(
+    writeDraft(localStorage, {
+      ...Object.fromEntries(
         [...FIELDS, "target"].map((key) => [key, $(key).value]),
       ),
-    );
+      weightUnit,
+    });
   } catch {
     status(
       "입력값을 자동 저장하지 못했습니다. 브라우저 저장 설정을 확인해 주세요.",
@@ -80,7 +116,8 @@ function render() {
   $("target").setAttribute("aria-invalid", String(targetError));
   const solutions = targetValid ? solveTargets(current.values, target) : null;
   selectedValues = null;
-  $("save-record").disabled = !solutions;
+  $("scenario-actions").hidden = true;
+  $("save-record").disabled = current.score === null;
   if (!solutions) {
     selectedKey = null;
     const hasInvalidValue = [...FIELDS, "target"].some(
@@ -106,11 +143,20 @@ function render() {
   }
   if (selectedKey && !solutions[selectedKey].possible) selectedKey = null;
   selectedValues = { ...current.values };
-  if (selectedKey) selectedValues[selectedKey] = solutions[selectedKey].value;
+  if (selectedKey) {
+    selectedValues[selectedKey] = solutions[selectedKey].value;
+    $("scenario-change").textContent =
+      `${LABELS[selectedKey]} ${fieldNumber(selectedKey, current.values[selectedKey])}${fieldUnit(selectedKey)} → ${fieldNumber(selectedKey, selectedValues[selectedKey])}${fieldUnit(selectedKey)}`;
+    $("scenario-actions").hidden = false;
+  }
   $("target-rows").innerHTML = Object.entries(solutions)
     .map(([key, solution]) => {
       const selected = selectedKey === key;
-      return `<tr class="${selected ? "selected" : ""}"><th scope="row">${LABELS[key]}</th><td><button type="button" data-key="${key}" aria-pressed="${selected}" aria-label="${LABELS[key]}만 조정${solution.possible ? "" : " 불가"}" ${solution.possible ? "" : "disabled"}>${solution.possible ? `<b>${number(solution.value, solution.digits)}</b><small>${UNITS[key]} ${solution.up ? "이상" : "이하"}</small>` : `<span class="impossible">${solution.reason}</span>`}</button></td><td>${solution.possible ? `<span class="delta">${solution.delta > 0 ? "+" : ""}${number(solution.delta, solution.digits)}${key === "livability" ? "%p" : UNITS[key]}</span>` : "—"}</td></tr>`;
+      const reason =
+        key === "weight" && weightUnit === "g"
+          ? "5,000g으로 달성 불가"
+          : solution.reason;
+      return `<tr class="${selected ? "selected" : ""}"><th scope="row">${LABELS[key]}</th><td><button type="button" data-key="${key}" aria-pressed="${selected}" aria-label="${LABELS[key]}만 조정${solution.possible ? "" : " 불가"}" ${solution.possible ? "" : "disabled"}>${solution.possible ? `<b>${fieldNumber(key, solution.value, solution.digits)}</b><small>${fieldUnit(key)} ${solution.up ? "이상" : "이하"}</small>` : `<span class="impossible">${reason}</span>`}</button></td><td>${solution.possible ? `<span class="delta">${solution.delta > 0 ? "+" : ""}${fieldNumber(key, solution.delta, solution.digits)}${key === "livability" ? "%p" : fieldUnit(key)}</span>` : "—"}</td></tr>`;
     })
     .join("");
   const score = evaluate(selectedValues).score;
@@ -160,7 +206,7 @@ function renderRecords() {
     const top = document.createElement("span");
     top.className = "record-top";
     const result = document.createElement("strong");
-    result.textContent = `목표 ${number(record.target)} → PI ${number(record.pi, 1)}`;
+    result.textContent = `PI ${number(record.pi, 1)}`;
     const time = document.createElement("time");
     time.dateTime = record.createdAt;
     time.textContent = dateFormat.format(new Date(record.createdAt));
@@ -168,7 +214,7 @@ function renderRecords() {
     top.append(result, time);
     const values = document.createElement("span");
     values.className = "record-values";
-    values.textContent = `${number(record.input.livability)}% · ${number(record.input.weight)}kg · ${number(record.input.age)}일 · FCR ${number(record.input.fcr)}`;
+    values.textContent = `${number(record.input.livability)}% · ${fieldNumber("weight", record.input.weight)}${weightUnit} · ${number(record.input.age)}일 · FCR ${number(record.input.fcr)}`;
     load.append(top, values);
     const remove = document.createElement("button");
     remove.type = "button";
@@ -190,6 +236,21 @@ FIELDS.forEach((key) =>
     selectedKey = null;
     status("");
     render();
+    persistDraft();
+  }),
+);
+document.querySelectorAll("[data-weight-unit]").forEach((button) =>
+  button.addEventListener("click", () => {
+    const nextUnit = button.dataset.weightUnit;
+    if (nextUnit === weightUnit) return;
+    const raw = $("weight").value;
+    const kg = weightInKg(raw, weightUnit);
+    weightUnit = nextUnit;
+    if (raw !== "") $("weight").value = displayWeight(kg, weightUnit);
+    syncWeightUnit();
+    status("");
+    render();
+    renderRecords();
     persistDraft();
   }),
 );
@@ -224,14 +285,44 @@ $("target-rows").addEventListener("click", (event) => {
     .querySelector(`[data-key="${button.dataset.key}"]`)
     ?.focus({ preventScroll: true });
 });
+$("apply-scenario").addEventListener("click", () => {
+  if (!selectedKey || !selectedValues) return;
+  const key = selectedKey;
+  $(key).value =
+    key === "weight"
+      ? displayWeight(selectedValues[key], weightUnit)
+      : selectedValues[key];
+  touched.add(key);
+  selectedKey = null;
+  render();
+  status(`${LABELS[key]} 적용 완료`);
+  persistDraft();
+  $("conditions-title").focus({ preventScroll: true });
+  $("conditions-title").scrollIntoView({
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth",
+    block: "start",
+  });
+});
+$("close-scenario").addEventListener("click", () => {
+  const key = selectedKey;
+  selectedKey = null;
+  status("");
+  render();
+  if (key)
+    $("target-rows")
+      .querySelector(`[data-key="${key}"]`)
+      ?.focus({ preventScroll: true });
+});
 $("save-record").addEventListener("click", () => {
-  if (!selectedValues || !validTarget($("target").value)) return;
+  const current = readInputs();
+  if (current.score === null) return;
   try {
     const record = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      input: { ...selectedValues },
-      target: Number($("target").value),
+      input: { ...current.values },
     };
     records = writeRecords(
       localStorage,
@@ -255,14 +346,16 @@ $("records").addEventListener("click", (event) => {
     const record = records[Number(load.dataset.load)];
     if (!record) return;
     FIELDS.forEach((key) => {
-      $(key).value = record.input[key];
+      $(key).value =
+        key === "weight"
+          ? displayWeight(record.input[key], weightUnit)
+          : record.input[key];
     });
-    $("target").value = record.target;
     selectedKey = null;
     render();
     status("저장한 조건을 불러왔습니다.");
     persistDraft();
-    $("target").focus({ preventScroll: true });
+    $("conditions-title").focus({ preventScroll: true });
     window.scrollTo({
       top: 0,
       behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -300,15 +393,18 @@ try {
 } catch {
   status("이전 기록을 읽을 수 없습니다. 계산은 계속 사용할 수 있습니다.", true);
 }
-renderRecords();
 try {
   const draft = readDraft(localStorage);
-  if (draft)
+  if (draft) {
+    weightUnit = draft.weightUnit;
     [...FIELDS, "target"].forEach((key) => {
       $(key).value = draft[key];
       if (draft[key] !== "") touched.add(key);
     });
+  }
 } catch {
   status("마지막 입력값을 불러오지 못했습니다. 새로 입력해 주세요.", true);
 }
+syncWeightUnit();
+renderRecords();
 render();
